@@ -27,6 +27,19 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+get_vcs() {
+    local begin_path=$1
+    cd "$begin_path"
+    while [ "$PWD" != "/" ]; do
+        if { [ -d .git ] || [ -d .hg ] ;} then
+            echo $PWD
+            return
+        fi
+        cd ..
+    done
+    echo "$begin_path"
+}
+
 fasd() {
 
   # make zsh do word splitting inside this function
@@ -37,14 +50,33 @@ fasd() {
     while [ "$1" ]; do
       case $1 in
         env)
-          local config_path="${XDG_CONFIG_HOME:-$HOME/.config}/fasd/fasdrc"
-          { # source rc files if present
-          [ -s "/etc/fasdrc" ] && . "/etc/fasdrc"
+          { # Load configuration file based on XDG Base Directory Spec.
 
-          [ -s "$config_path" ] && . "$config_path"
+          if [ -s "$XDG_CONFIG_HOME/fasd/config" ]; then
+            . "$XDG_CONFIG_HOME/fasd/config"
+          # Fallback for when $XDG_CONFIG_HOME is unset
+          elif [ -s "$HOME/.config/fasd/config" ]; then
+            . "$HOME/.config/fasd/config"
+          elif [ -s "$XDG_CONFIG_DIRS/fasd/config" ]; then
+            . "$XDG_CONFIG_DIRS/fasd/config"
+          # Fallback for when $XDG_CONFIG_DIRS is unset
+          elif [ -s "/etc/xdg/fasd/config" ]; then
+            . "/etc/xdg/fasd/config"
+          # Fallback to old rc for backward compatibility
+          else
+            [ -s "/etc/fasdrc" ] && . "/etc/fasdrc"
+            [ -s "$HOME/.fasdrc" ] && . "$HOME/.fasdrc"
+          fi
 
           # set default options
-          [ -z "$_FASD_DATA" ] && _FASD_DATA="$HOME/.fasd"
+          [ -z "$_FASD_GREP" ] && _FASD_GREP=grep
+          if [ -z "$_FASD_DATA" ]; then
+            if [ -n "$XDG_CACHE_HOME" ]; then
+              _FASD_DATA="$XDG_CACHE_HOME/fasd"
+            else
+              _FASD_DATA="$HOME/.cache/fasd"
+            fi
+          fi
           [ -z "$_FASD_BLACKLIST" ] && _FASD_BLACKLIST="--help"
           [ -z "$_FASD_SHIFT" ] && _FASD_SHIFT="sudo busybox"
           [ -z "$_FASD_IGNORE" ] && _FASD_IGNORE="fasd ls echo"
@@ -54,8 +86,11 @@ fasd() {
           [ -z "$_FASD_BACKENDS" ] && _FASD_BACKENDS=native
           [ -z "$_FASD_FUZZY" ] && _FASD_FUZZY=2
           [ -z "$_FASD_VIMINFO" ] && _FASD_VIMINFO="$HOME/.viminfo"
+          [ -z "$_FASD_RESOLVE_SYMLINKS" ] && _FASD_RESOLVE_SYMLINKS=0
+          [ -z "$_FASD_ONLY_VCS" ] && _FASD_ONLY_VCS=1
           [ -z "$_FASD_RECENTLY_USED_XBEL" ] && \
             _FASD_RECENTLY_USED_XBEL="$HOME/.local/share/recently-used.xbel"
+          [ -z "$_FASD_NOCASE" ] && _FASD_NOCASE=0
 
           if [ -z "$_FASD_AWK" ]; then
             # awk preferences
@@ -93,8 +128,8 @@ fasd_cd() {
     fasd "\$@"
   else
     local _fasd_ret="\$(fasd -e 'printf %s' "\$@")"
-    [ -z "\$_fasd_ret" ] && return
-    [ -d "\$_fasd_ret" ] && cd "\$_fasd_ret" || printf %s\\n "\$_fasd_ret"
+    [ -z "\$_fasd_ret" ] && return 1
+    [ -d "\$_fasd_ret" ] && cd "\$_fasd_ret" || printf '%s\\n' "\$_fasd_ret"
   fi
 }
 alias z='fasd_cd -d'
@@ -104,7 +139,7 @@ EOS
         ;;
 
       tcsh-alias) cat <<EOS
-;alias a 'fasd -a';
+alias a 'fasd -a';
 alias s 'fasd -si';
 alias sd 'fasd -sid';
 alias sf 'fasd -sif';
@@ -117,7 +152,7 @@ EOS
       zsh-hook) cat <<EOS
 # add zsh hook
 _fasd_preexec() {
-  { eval "fasd --proc \$(fasd --sanitize \$2)"; } >> "$_FASD_SINK" 2>&1
+  { fasd --proc \$(fasd --sanitize "\$2") } >> "$_FASD_SINK" 2>&1
 }
 autoload -Uz add-zsh-hook
 add-zsh-hook preexec _fasd_preexec
@@ -127,8 +162,11 @@ EOS
 
       bash-hook) cat <<EOS
 _fasd_prompt_func() {
+  local _exit_code="\$?"
   eval "fasd --proc \$(fasd --sanitize \$(history 1 | \\
     sed "s/^[ ]*[0-9]*[ ]*//"))" >> "$_FASD_SINK" 2>&1
+  # preserve exit code
+  return \$_exit_code
 }
 
 # add bash hook
@@ -154,9 +192,8 @@ EOS
         ;;
 
       tcsh-hook) cat <<EOS
-;alias fasd-prev-cmd 'fasd --sanitize \`history -h 1\`';
-set pprecmd="\`alias precmd\`";
-alias precmd '\$pprecmd; eval "fasd --proc \`fasd-prev-cmd\`" >& /dev/null';
+alias fasd-prev-cmd 'fasd --sanitize \`history -h 1\`';
+alias precmd 'eval "fasd --proc \`fasd-prev-cmd\`" >& /dev/null';
 EOS
 
         ;;
@@ -330,10 +367,14 @@ EOS
       s@/\.\.$@/../@;s@/\(\./\)\{1,\}@/@g;:0
       s@[^/][^/]*//*\.\./@/@;t 0
       s@^/*\.\./@/@;s@//*@/@g;s@/\.\{0,1\}$@@;s@^$@/@' 2>> "$_FASD_SINK" \
+      | ( [ $_FASD_RESOLVE_SYMLINKS = 1 ] && xargs -I {} readlink -f {} || cat ) \
       | tr '\n' '|')"
 
     # add current pwd if the option is set
-    [ "$_FASD_TRACK_PWD" = "1" -a "$PWD" != "$HOME" ] && paths="$paths|$PWD"
+    local pwd="$PWD"
+    [ $_FASD_RESOLVE_SYMLINKS = 1 ] && pwd="$(readlink -f "$pwd")"
+    [ $_FASD_ONLY_VCS = 1 ] && pwd="$(get_vcs $pwd)"
+    [ "$_FASD_TRACK_PWD" = 1 -a "$PWD" != "$HOME" ] && paths="$paths|$pwd"
 
     [ -z "${paths##\|}" ] && return # stop if we have nothing to add
 
@@ -418,18 +459,20 @@ $(fasd --backend $each)"
       *) local prior='times[i] * frecent(la[i])';;
     esac
 
-    if [ "$fnd" ]; then # dafault matching
+    if [ "$fnd" ]; then # default matching
       local bre="$(printf %s\\n "$fnd" | sed 's/\([*\.\\\[]\)/\\\1/g
         s@ @[^|]*@g;s/\$$/|/')"
       bre='^[^|]*'"$bre"'[^|/]*|'
-      local _ret="$(printf %s\\n "$_fasd_data" | grep "$bre")"
+      local _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP "$bre")"
+      # force no case matching for default matching
+      [ "$_FASD_NOCASE" = 1 ] && _ret="$(printf %s\\n "$_fasd_data" | grep -i "$bre")"
       [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
         [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
       done)"
       if [ "$_ret" ]; then
         _fasd_data="$_ret"
-      else # no case mathcing
-        _ret="$(printf %s\\n "$_fasd_data" | grep -i "$bre")"
+      else # no case matching
+        _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP -i "$bre")"
         [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
           [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
         done)"
@@ -441,7 +484,7 @@ $(fasd --backend $each)"
               s@\(\\\{0,1\}[^ ]\)@\1[^|/]\\{0,'"$_FASD_FUZZY"'\\}@g
               s@ @[^|]*@g')"
           fuzzy_bre='^[^|]*'"$fuzzy_bre"'[^|/]*|'
-          _ret="$(printf %s\\n "$_fasd_data" | grep -i "$fuzzy_bre")"
+          _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP -i "$fuzzy_bre")"
           [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
             [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
           done)"
@@ -522,7 +565,7 @@ $(fasd --backend $each)"
     while [ "$1" ]; do case $1 in
       --complete) [ "$2" = "--" ] && shift; set -- $2; local lst=1 r=r comp=1;;
       --query|--add|--delete|-A|-D) fasd "$@"; return $?;;
-      --version) [ -z "$comp" ] && echo "1.0.1" && return;;
+      --version) [ -z "$comp" ] && echo "1.0.2" && return;;
       --) while [ "$2" ]; do shift; fnd="$fnd $1"; last="$1"; done;;
       -*) local o="${1#-}"; while [ "$o" ]; do case $o in
           s*) local show=1;;
@@ -618,7 +661,7 @@ fasd [-A|-D] [paths ...]
     if [ "$res" ]; then
       fasd --add "$res"
       [ -z "$exec" ] && exec='printf %s\n'
-      $exec "$res"
+      exec $exec "$res"
     fi
     ;;
   esac
@@ -635,4 +678,3 @@ case $- in
       fasd "$@"
     fi;;
 esac
-

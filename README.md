@@ -25,7 +25,7 @@ will "expand" your command into the right side. Pretty magic, huh?
 
 ```
   v def conf       =>     vim /some/awkward/path/to/type/default.conf
-  j abc            =>     cd /hell/of/a/awkward/path/to/get/to/abcdef
+  j abc            =>     cd /hell/of/an/awkward/path/to/get/to/abcdef
   m movie          =>     mplayer /whatever/whatever/whatever/awesome_movie.mp4
   o eng paper      =>     xdg-open /you/dont/remember/where/english_paper.pdf
   vim `f rc lo`    =>     vim /etc/rc.local
@@ -62,9 +62,9 @@ for an up-to-date list.
 
 You can also manually obtain a copy of fasd.
 
-Download fasd 1.0.1 from GitHub:
-[zip](https://github.com/clvv/fasd/zipball/1.0.1),
-[tar.gz](https://github.com/clvv/fasd/tarball/1.0.1).
+Download fasd 1.0.2 from GitHub:
+[zip](https://github.com/whjvenyl/fasd/zipball/1.0.2),
+[tar.gz](https://github.com/whjvenyl/fasd/tarball/1.0.2).
 
 Fasd is a self-contained POSIX shell script that can be either sourced or
 executed. A Makefile is provided to install `fasd` and `fasd.1` to desired
@@ -293,8 +293,8 @@ things in vim
 ```
 
 You can define your own backend by declaring a function by that name in your
-`fasdrc`. You can set default backend with `_FASD_BACKENDS` variable in our
-`fasdrc`.
+[config file](#tweaks). You can set default backend with `_FASD_BACKENDS` variable in
+our [config file](#tweaks).
 
 Fasd can mimic [v](http://github.com/rupa/v)'s behavior by this alias:
 
@@ -305,7 +305,7 @@ alias v='f -t -e vim -b viminfo'
 # Tweaks
 
 Some shell variables that you can set before sourcing `fasd`. You can set them
-in `$HOME/.config/fasd/fasdrc`
+in `$HOME/.config/fasd/config`
 
 ```
 $_FASD_DATA
@@ -352,10 +352,16 @@ disable fuzzy matching. Default value is 2.
 $_FASD_VIMINFO
 Path to .viminfo file for viminfo backend, defaults to "$HOME/.viminfo"
 
+$_FASD_RESOLVE_SYMLINKS
+Set this option to 1 if you want fasd to resolve symbolic links. This is useful
+to prevent duplicates in the entry list. Defaults to 0.
+
 $_FASD_RECENTLY_USED_XBEL
 Path to XDG recently-used.xbel file for recently-used backend, defaults to
 "$HOME/.local/share/recently-used.xbel"
 
+$_FASD_NOCASE
+Force case insensitivity for default matching with value 1, defaults to 0.
 ```
 
 # Debugging
@@ -364,7 +370,7 @@ If fasd does not work as expected, please file a bug report describing the
 unexpected behavior along with your OS version, shell version, awk version, sed
 version, and a log file.
 
-You can set `_FASD_SINK` in your `fasdrc` to obtain a log.
+You can set `_FASD_SINK` in your [config file](#tweaks) to obtain a log.
 
 ```sh
 _FASD_SINK="$HOME/.fasd.log"
@@ -375,4 +381,3 @@ _FASD_SINK="$HOME/.fasd.log"
 Fasd is originally written based on code from [z](https://github.com/rupa/z) by
 rupa deadwyler under the WTFPL license. Most if not all of the code has been
 rewritten. Fasd is licensed under the "MIT/X11" license.
-
