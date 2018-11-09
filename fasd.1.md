@@ -187,12 +187,12 @@ backends.
   for editing things in vim
 
 You can define your own backend by declaring a function by that name in your
-`.fasdrc`. You can set default backend with `_FASD_BACKENDS` variable in our
-`.fasdrc`.
+`fasdrc`. You can set default backend with `_FASD_BACKENDS` variable in our
+`fasdrc`.
 
 # TWEAKS
 
-Upon every execution, fasd will source "/etc/fasdrc" and "$HOME/.fasdrc" if
+Upon every execution, fasd will source "/etc/fasdrc" and "$HOME/fasdrc" if
 they are present. Below are some variables you can set:
 
     $_FASD_DATA
@@ -251,7 +251,7 @@ If fasd does not work as expected, please file a bug report on GitHub describing
 the unexpected behavior along with your OS version, shell version, awk version,
 sed version, and a log file.
 
-You can set `_FASD_SINK` in your `.fasdrc` to obtain a log.
+You can set `_FASD_SINK` in your `fasdrc` to obtain a log.
 
     _FASD_SINK="$HOME/.fasd.log"
 

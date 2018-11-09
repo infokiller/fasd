@@ -37,9 +37,11 @@ fasd() {
     while [ "$1" ]; do
       case $1 in
         env)
+          local config_path="${XDG_CONFIG_HOME:-$HOME/.config}/fasd/fasdrc"
           { # source rc files if present
           [ -s "/etc/fasdrc" ] && . "/etc/fasdrc"
-          [ -s "$HOME/.fasdrc" ] && . "$HOME/.fasdrc"
+
+          [ -s "$config_path" ] && . "$config_path"
 
           # set default options
           [ -z "$_FASD_DATA" ] && _FASD_DATA="$HOME/.fasd"

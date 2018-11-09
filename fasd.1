@@ -227,12 +227,12 @@ viminfo: Vim\[aq]s editing history, useful if you want to define an
 alias just for editing things in vim
 .PP
 You can define your own backend by declaring a function by that name in
-your \f[C]\&.fasdrc\f[].
+your \f[C]\&fasdrc\f[].
 You can set default backend with \f[C]_FASD_BACKENDS\f[] variable in our
-\f[C]\&.fasdrc\f[].
+\f[C]\&fasdrc\f[].
 .SH TWEAKS
 .PP
-Upon every execution, fasd will source "/etc/fasdrc" and "$HOME/.fasdrc"
+Upon every execution, fasd will source "/etc/fasdrc" and "$HOME/fasdrc"
 if they are present.
 Below are some variables you can set:
 .IP
@@ -295,7 +295,7 @@ If fasd does not work as expected, please file a bug report on GitHub
 describing the unexpected behavior along with your OS version, shell
 version, awk version, sed version, and a log file.
 .PP
-You can set \f[C]_FASD_SINK\f[] in your \f[C]\&.fasdrc\f[] to obtain a
+You can set \f[C]_FASD_SINK\f[] in your \f[C]\&fasdrc\f[] to obtain a
 log.
 .IP
 .nf
