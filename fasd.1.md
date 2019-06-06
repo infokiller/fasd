@@ -207,7 +207,7 @@ Below are the available variables you can set:
     Path to the fasd data file, default "$XDG_CACHE_HOME/fasd" or "$HOME/.cache/fasd" if $XDG_CACHE_HOME is not set.
 
     $_FASD_BLACKLIST
-    List of blacklisted strings. Commands matching them will not be processed.
+    Bash array of blacklisted strings regexes. Commands matching them will not be processed.
     Default is "--help".
 
     $_FASD_SHIFT
