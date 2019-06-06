@@ -77,13 +77,13 @@ fasd() {
               _FASD_DATA="$HOME/.cache/fasd"
             fi
           fi
-          [ -z "$_FASD_BLACKLIST" ] && _FASD_BLACKLIST=("--help")
+          [ -z "$_FASD_COMMAND_BLACKLIST" ] && _FASD_COMMAND_BLACKLIST=("--help")
           [ -z "$_FASD_SHIFT" ] && _FASD_SHIFT="sudo busybox"
           [ -z "$_FASD_IGNORE" ] && _FASD_IGNORE="fasd ls echo"
           [ -z "$_FASD_SINK" ] && _FASD_SINK=/dev/null
           [ -z "$_FASD_TRACK_PWD" ] && _FASD_TRACK_PWD=1
           [ -z "$_FASD_MAX" ] && _FASD_MAX=2000
-          [ -z "$_FASD_BACKENDS" ] && _FASD_BACKENDS=native
+          [ -z "$_FASD_BACKENDS" ] && _FASD_BACKENDS=(native)
           [ -z "$_FASD_FUZZY" ] && _FASD_FUZZY=2
           [ -z "$_FASD_VIMINFO" ] && _FASD_VIMINFO="$HOME/.viminfo"
           [ -z "$_FASD_RESOLVE_SYMLINKS" ] && _FASD_RESOLVE_SYMLINKS=0
@@ -336,9 +336,9 @@ EOS
     [ -f "$_FASD_DATA" -a ! -O "$_FASD_DATA" ] || [ "$_FASD_RO" ] && return
 
     # blacklists
-    local blacklisted_path_regex 
-    for blacklisted_path_regex in "${_FASD_BLACKLIST[@]}"; do
-      if [[ "$*" =~ "${blacklisted_path_regex}" ]]; then
+    local blacklist_regex 
+    for blacklist_regex in "${_FASD_COMMAND_BLACKLIST[@]}"; do
+      if [[ "$*" =~ "${blacklist_regex}" ]]; then
         return
       fi
     done
@@ -449,7 +449,7 @@ EOS
     [ "$3" ] && local mode="$3"
 
     # cat all backends
-    local each _fasd_data; for each in $_FASD_BACKENDS; do
+    local each _fasd_data; for each in "${_FASD_BACKENDS[@]}"; do
       _fasd_data="$_fasd_data
 $(fasd --backend $each)"
     done
@@ -564,6 +564,7 @@ $(fasd --backend $each)"
     ;;
 
   *) # parsing logic and processing
+    declare -ga _FASD_BACKENDS
     local fnd= last= _FASD_BACKENDS="$_FASD_BACKENDS" _fasd_data= comp= exec=
     while [ "$1" ]; do case $1 in
       --complete) [ "$2" = "--" ] && shift; set -- $2; local lst=1 r=r comp=1;;
@@ -583,15 +584,15 @@ $(fasd --backend $each)"
                 shift
               fi; break;;
           b*) o="${o#?}"; if [ "$o" ]; then
-                _FASD_BACKENDS="$o"
+              _FASD_BACKENDS=("$o")
               else
-                _FASD_BACKENDS="${2:?"-b: Argument needed"}"
+                _FASD_BACKENDS=("${2:?"-b: Argument needed"}")
                 shift
               fi; break;;
           B*) o="${o#?}"; if [ "$o" ]; then
-                _FASD_BACKENDS="$_FASD_BACKENDS $o"
+              _FASD_BACKENDS+=("$o")
               else
-                _FASD_BACKENDS="$_FASD_BACKENDS ${2:?"-B: Argument needed"}"
+                _FASD_BACKENDS+=("${2:?"-B: Argument needed"}")
                 shift
               fi; break;;
           a*) local typ=e;;

@@ -255,7 +255,7 @@ Below are the available variables you can set:
 $_FASD_DATA
 Path\ to\ the\ fasd\ data\ file,\ default\ "$XDG_CACHE_HOME/fasd"\ or\ "$HOME/.cache/fasd"\ if\ $XDG_CACHE_HOME\ is\ not\ set.
 
-$_FASD_BLACKLIST
+$_FASD_COMMAND_BLACKLIST
 Bash\ array\ of\ blacklisted\ string regexes.\ Commands\ matching\ them\ will\ not\ be\ processed.
 Default\ is\ "\-\-help".
 
@@ -282,7 +282,7 @@ Which\ shell\ to\ execute.\ Some\ shells\ will\ run\ faster\ than\ others.\ fasd
 runs\ faster\ with\ dash\ and\ ksh\ variants.
 
 $_FASD_BACKENDS
-Default\ backends.
+Bash\ array\ of\ default\ backends.
 
 $_FASD_RO
 If\ set\ to\ any\ non\-empty\ string,\ fasd\ will\ not\ add\ or\ delete\ entries\ from

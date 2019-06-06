@@ -187,7 +187,7 @@ backends.
   for editing things in vim
 
 You can define your own backend by declaring a function by that name in your
-[configuration file](#configuration). You can set default backend with `_FASD_BACKENDS` variable.
+[configuration file](#configuration). You can set default backends with `_FASD_BACKENDS` variable.
 
 
 # CONFIGURATION
@@ -206,7 +206,7 @@ Below are the available variables you can set:
     $_FASD_DATA
     Path to the fasd data file, default "$XDG_CACHE_HOME/fasd" or "$HOME/.cache/fasd" if $XDG_CACHE_HOME is not set.
 
-    $_FASD_BLACKLIST
+    $_FASD_COMMAND_BLACKLIST
     Bash array of blacklisted strings regexes. Commands matching them will not be processed.
     Default is "--help".
 
@@ -233,7 +233,7 @@ Below are the available variables you can set:
     runs faster with dash and ksh variants.
 
     $_FASD_BACKENDS
-    Default backends.
+    Bash array of default backends.
 
     $_FASD_RO
     If set to any non-empty string, fasd will not add or delete entries from

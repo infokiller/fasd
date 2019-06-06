@@ -311,7 +311,7 @@ in `$HOME/.config/fasd/config`
 $_FASD_DATA
 Path to the fasd data file, default "$HOME/.fasd".
 
-$_FASD_BLACKLIST
+$_FASD_COMMAND_BLACKLIST
 Bash array of blacklisted strings regexes. Commands matching them will not be processed.
 Default is "--help".
 
@@ -338,7 +338,7 @@ Which shell to execute. Some shells will run faster than others. fasd
 runs faster with dash and ksh variants.
 
 $_FASD_BACKENDS
-Default backends.
+Bash array of default backends.
 
 $_FASD_RO
 If set to any non-empty string, fasd will not add or delete entries from
