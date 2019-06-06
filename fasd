@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # Fasd (this file) can be sourced or executed by any POSIX compatible shell.
 
@@ -448,12 +448,25 @@ EOS
     [ "$2" ] && local fnd="$2"
     [ "$3" ] && local mode="$3"
 
-    # cat all backends
-    local each _fasd_data; for each in "${_FASD_BACKENDS[@]}"; do
-      _fasd_data="$_fasd_data
-$(fasd --backend $each)"
+    # cat all backends and check for files existance.
+    local backend
+    local -a _fasd_data
+    for backend in "${_FASD_BACKENDS[@]}"; do
+      local line path
+      for line in $(fasd --backend "${backend}"); do
+        path="${line%%\|*}"
+        local is_check_blacklisted=0
+        for blacklist_regex in "${_FASD_PATH_CHECK_BLACKLIST[@]}"; do
+          if [[ "${path}" =~ ${blacklist_regex} ]]; then
+            is_check_blacklisted=1
+            break
+          fi
+        done
+        if ((is_check_blacklisted)) || test -"${typ:-e}" "${path}"; then
+          _fasd_data+=("${path}")
+        fi
+      done
     done
-    [ "$_fasd_data" ] || _fasd_data="$(cat "$_FASD_DATA")"
 
     # set mode specific code for calculating the prior
     case $mode in
@@ -463,45 +476,37 @@ $(fasd --backend $each)"
     esac
 
     if [ "$fnd" ]; then # default matching
-      local bre="$(printf %s\\n "$fnd" | sed 's/\([*\.\\\[]\)/\\\1/g
+      echo "IN MATCHING: ${fnd}" >> ~/fasd.log
+      local bre="$(printf '%s\n' "$fnd" | sed 's/\([*\.\\\[]\)/\\\1/g
         s@ @[^|]*@g;s/\$$/|/')"
       bre='^[^|]*'"$bre"'[^|/]*|'
-      local _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP "$bre")"
+      local -a _fasd_data_matching
       # force no case matching for default matching
-      [ "$_FASD_NOCASE" = 1 ] && _ret="$(printf %s\\n "$_fasd_data" | grep -i "$bre")"
-      [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
-        [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
-      done)"
-      if [ "$_ret" ]; then
-        _fasd_data="$_ret"
+      if [ "$_FASD_NOCASE" = 1 ]; then 
+        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$bre")
+      else
+        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP "$bre")
+      fi
+      if [[ -n "${_fasd_data_matching[*]}" ]]; then
+        _fasd_data=("${_fasd_data_matching[@]}")
       else # no case matching
-        _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP -i "$bre")"
-        [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
-          [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
-        done)"
-        if [ "$_ret" ]; then
-          _fasd_data="$_ret"
+        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$bre")
+        if [[ -n "${_fasd_data_matching[*]}" ]]; then
+          _fasd_data=("${_fasd_data_matching[@]}")
         elif [ "${_FASD_FUZZY:-0}" -gt 0 ]; then # fuzzy matching
-          local fuzzy_bre="$(printf %s\\n "$fnd" | \
+          local fuzzy_bre="$(printf '%s\n' "$fnd" | \
             sed 's/\([*\.\\\[]\)/\\\1/g;s/\$$/|/
               s@\(\\\{0,1\}[^ ]\)@\1[^|/]\\{0,'"$_FASD_FUZZY"'\\}@g
               s@ @[^|]*@g')"
           fuzzy_bre='^[^|]*'"$fuzzy_bre"'[^|/]*|'
-          _ret="$(printf %s\\n "$_fasd_data" | $_FASD_GREP -i "$fuzzy_bre")"
-          [ "$_ret" ] && _ret="$(printf %s\\n "$_ret" | while read -r line; do
-            [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
-          done)"
-          [ "$_ret" ] && _fasd_data="$_ret" || _fasd_data=
+          mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$fuzzy_bre")
+          _fasd_data=("${_fasd_data_matching[@]}")
         fi
       fi
-    else # no query arugments
-      _fasd_data="$(printf %s\\n "$_fasd_data" | while read -r line; do
-        [ -${typ:-e} "${line%%\|*}" ] && printf %s\\n "$line"
-      done)"
     fi
 
     # query the database
-    [ "$_fasd_data" ] && printf %s\\n "$_fasd_data" | \
+    [[ -n "${_fasd_data[*]}" ]] && printf '%s\n' "${_fasd_data[@]}" | \
       $_FASD_AWK -v t="$(date +%s)" -F"|" '
       function frecent(time) {
         dx = t-time
@@ -565,7 +570,7 @@ $(fasd --backend $each)"
 
   *) # parsing logic and processing
     declare -ga _FASD_BACKENDS
-    local fnd= last= _FASD_BACKENDS="$_FASD_BACKENDS" _fasd_data= comp= exec=
+    local fnd= last= _fasd_data= comp= exec=
     while [ "$1" ]; do case $1 in
       --complete) [ "$2" = "--" ] && shift; set -- $2; local lst=1 r=r comp=1;;
       --query|--add|--delete|-A|-D) fasd "$@"; return $?;;
@@ -640,26 +645,26 @@ fasd [-A|-D] [paths ...]
     res="$(fasd --query 2>> "$_FASD_SINK")" # query the database
     [ $? -gt 0 ] && return
     if [ 0 -lt ${_fasd_i:-0} ] 2>> "$_FASD_SINK"; then
-      res="$(printf %s\\n "$res" | sort -n${R} | \
+      res="$(printf '%s\n' "$res" | sort -n${R} | \
         sed -n "$_fasd_i"'s/^[^ ]*[ ]*//p')"
     elif [ "$interactive" ] || [ "$exec" -a -z "$fnd$lst$show" -a -t 1 ]; then
       if [ "$(printf %s "$res" | sed -n '$=')" -gt 1 ]; then
-        res="$(printf %s\\n "$res" | sort -n${R})"
-        printf %s\\n "$res" | sed = | sed 'N;s/\n/	/' | sort -nr >&2
+        res="$(printf '%s\n' "$res" | sort -n${R})"
+        printf '%s\n' "$res" | sed = | sed 'N;s/\n/	/' | sort -nr >&2
         printf "> " >&2
         local i; read i; [ 0 -lt "${i:-0}" ] 2>> "$_FASD_SINK" || return 1
       fi
-      res="$(printf %s\\n "$res" | sed -n "${i:-1}"'s/^[^ ]*[ ]*//p')"
+      res="$(printf '%s\n' "$res" | sed -n "${i:-1}"'s/^[^ ]*[ ]*//p')"
     elif [ "$lst" ]; then
-      [ "$res" ] && printf %s\\n "$res" | sort -n${r} | sed 's/^[^ ]*[ ]*//'
+      [ "$res" ] && printf '%s\n' "$res" | sort -n${r} | sed 's/^[^ ]*[ ]*//'
       return
     elif [ "$show" ]; then
-      [ "$res" ] && printf %s\\n "$res" | sort -n${r}
+      [ "$res" ] && printf '%s\n' "$res" | sort -n${r}
       return
     elif [ "$fnd" ] && [ "$exec" -o ! -t 1 ]; then # exec or subshell
-      res="$(printf %s\\n "$res" | sort -n | sed -n '$s/^[^ ]*[ ]*//p')"
+      res="$(printf '%s\n' "$res" | sort -n | sed -n '$s/^[^ ]*[ ]*//p')"
     else # no args, show
-      [ "$res" ] && printf %s\\n "$res" | sort -n${r}
+      [ "$res" ] && printf '%s\n' "$res" | sort -n${r}
       return
     fi
     if [ "$res" ]; then
