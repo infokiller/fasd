@@ -495,36 +495,6 @@ EOS
       *) local prior='times[i] * frecent(la[i])';;
     esac
 
-    if [ "$fnd" ]; then # default matching
-      printf_debug_log 'In matching %s:\n' "${fnd}"
-      local bre="$(printf '%s\n' "$fnd" | sed 's/\([*\.\\\[]\)/\\\1/g
-        s@ @[^|]*@g;s/\$$/|/')"
-      bre='^[^|]*'"$bre"'[^|/]*|'
-      local -a _fasd_data_matching
-      # force no case matching for default matching
-      if [ "$_FASD_NOCASE" = 1 ]; then 
-        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$bre")
-      else
-        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP "$bre")
-      fi
-      if [[ -n "${_fasd_data_matching[*]}" ]]; then
-        _fasd_data=("${_fasd_data_matching[@]}")
-      else # no case matching
-        mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$bre")
-        if [[ -n "${_fasd_data_matching[*]}" ]]; then
-          _fasd_data=("${_fasd_data_matching[@]}")
-        elif [ "${_FASD_FUZZY:-0}" -gt 0 ]; then # fuzzy matching
-          local fuzzy_bre="$(printf '%s\n' "$fnd" | \
-            sed 's/\([*\.\\\[]\)/\\\1/g;s/\$$/|/
-              s@\(\\\{0,1\}[^ ]\)@\1[^|/]\\{0,'"$_FASD_FUZZY"'\\}@g
-              s@ @[^|]*@g')"
-          fuzzy_bre='^[^|]*'"$fuzzy_bre"'[^|/]*|'
-          mapfile -t _fasd_data_matching < <(printf '%s\n' "${_fasd_data[@]}" | $_FASD_GREP -i "$fuzzy_bre")
-          _fasd_data=("${_fasd_data_matching[@]}")
-        fi
-      fi
-    fi
-
     # query the database
     printf_debug_log 'prior: %s\n' "$prior"
     [[ -n "${_fasd_data[*]}" ]] && printf '%s\n' "${_fasd_data[@]}" | \
