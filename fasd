@@ -40,6 +40,12 @@ get_vcs() {
     echo "$begin_path"
 }
 
+printf_debug_log() {
+  [[ -z "${_FASD_LOG_PATH}" ]] && return
+  printf '[%s] ' "$(date +"%F %T")" >> "${_FASD_LOG_PATH}"
+  printf -- "$@" >> "${_FASD_LOG_PATH}"
+}
+
 fasd() {
 
   # make zsh do word splitting inside this function
@@ -97,6 +103,11 @@ fasd() {
             local awk; for awk in mawk gawk original-awk nawk awk; do
               $awk "" && _FASD_AWK=$awk && break
             done
+          fi
+
+          if [[ -n "${_FASD_LOG_PATH}" && ! -f "${_FASD_LOG_PATH}" ]]; then
+            mkdir -p "$(dirname "${_FASD_LOG_PATH}")"
+            touch "${_FASD_LOG_PATH}"
           fi
         } >> "${_FASD_SINK:-/dev/null}" 2>&1
         ;;
@@ -363,6 +374,13 @@ EOS
     # stop if we don't own $_FASD_DATA or $_FASD_RO is set
     [ -f "$_FASD_DATA" -a ! -O "$_FASD_DATA" ] || [ "$_FASD_RO" ] && return
 
+    printf_debug_log '--add args: "%s"\n' "$*"
+    local paths="$(while [ "$1" ]; do
+      [ -e "$1" ] && printf %s\\n "$1"; shift
+    done | sed '/^[^/]/s@^@'"$PWD"'/@' 2>> "$_FASD_SINK")"
+
+    printf_debug_log 'sed filtered paths: %s\n' "${paths[*]}"
+
     # find all valid path arguments, convert them to simplest absolute form
     local paths="$(while [ "$1" ]; do
       [ -e "$1" ] && printf %s\\n "$1"; shift
@@ -378,6 +396,8 @@ EOS
     [ $_FASD_RESOLVE_SYMLINKS = 1 ] && pwd="$(readlink -f "$pwd")"
     [ $_FASD_ONLY_VCS = 1 ] && pwd="$(get_vcs "$pwd")"
     [ "$_FASD_TRACK_PWD" = 1 -a "$PWD" != "$HOME" ] && paths="$paths|$pwd"
+
+    printf_debug_log 'Adding paths: %s\n' "${paths[*]}"
 
     [ -z "${paths##\|}" ] && return # stop if we have nothing to add
 
@@ -463,7 +483,7 @@ EOS
           fi
         done
         if ((is_check_blacklisted)) || test -"${typ:-e}" "${path}"; then
-          _fasd_data+=("${path}")
+          _fasd_data+=("${line}")
         fi
       done
     done
@@ -476,7 +496,7 @@ EOS
     esac
 
     if [ "$fnd" ]; then # default matching
-      echo "IN MATCHING: ${fnd}" >> ~/fasd.log
+      printf_debug_log 'In matching %s:\n' "${fnd}"
       local bre="$(printf '%s\n' "$fnd" | sed 's/\([*\.\\\[]\)/\\\1/g
         s@ @[^|]*@g;s/\$$/|/')"
       bre='^[^|]*'"$bre"'[^|/]*|'
@@ -506,6 +526,7 @@ EOS
     fi
 
     # query the database
+    printf_debug_log 'prior: %s\n' "$prior"
     [[ -n "${_fasd_data[*]}" ]] && printf '%s\n' "${_fasd_data[@]}" | \
       $_FASD_AWK -v t="$(date +%s)" -F"|" '
       function frecent(time) {
