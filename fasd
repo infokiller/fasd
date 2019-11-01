@@ -42,7 +42,7 @@ get_vcs() {
 
 printf_debug_log() {
   [[ -z "${_FASD_LOG_PATH}" ]] && return
-  printf '[%s] ' "$(date +"%F %T")" >> "${_FASD_LOG_PATH}"
+  printf '[%s] ' "$(date +"%F %T.%6N")" >> "${_FASD_LOG_PATH}"
   printf -- "$@" >> "${_FASD_LOG_PATH}"
 }
 
@@ -374,11 +374,6 @@ EOS
     [ -f "$_FASD_DATA" -a ! -O "$_FASD_DATA" ] || [ "$_FASD_RO" ] && return
 
     printf_debug_log '--add args: "%s"\n' "$*"
-    local paths="$(while [ "$1" ]; do
-      [ -e "$1" ] && printf %s\\n "$1"; shift
-    done | sed '/^[^/]/s@^@'"$PWD"'/@' 2>> "$_FASD_SINK")"
-
-    printf_debug_log 'sed filtered paths: %s\n' "${paths[*]}"
 
     # find all valid path arguments, convert them to simplest absolute form
     local paths="$(while [ "$1" ]; do
@@ -463,6 +458,7 @@ EOS
     ;;
 
   --query) shift # query the db, --query [$typ ["$fnd" [$mode]]]
+    printf_debug_log 'in query\n'
     [ -f "$_FASD_DATA" ] || return # no db yet
     [ "$1" ] && local typ="$1"
     [ "$2" ] && local fnd="$2"
@@ -472,8 +468,9 @@ EOS
     local backend
     local -a _fasd_data
     for backend in "${_FASD_BACKENDS[@]}"; do
+      printf_debug_log 'checking existance for backend: %s\n' "${backend}"
       local line path
-      for line in $(fasd --backend "${backend}"); do
+      while read -r line; do
         path="${line%%\|*}"
         local is_check_blacklisted=0
         for blacklist_regex in "${_FASD_PATH_CHECK_BLACKLIST[@]}"; do
@@ -485,8 +482,9 @@ EOS
         if ((is_check_blacklisted)) || test -"${typ:-e}" "${path}"; then
           _fasd_data+=("${line}")
         fi
-      done
+      done < <(fasd --backend "${backend}")
     done
+    printf_debug_log 'finished blacklists\n'
 
     # set mode specific code for calculating the prior
     case $mode in
