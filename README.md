@@ -277,10 +277,6 @@ can be converted into fasd's native format. Below is a list of available
 backends.
 
 ```
-`spotlight`
-OSX spotlight, provides entries that are changed today or opened within the
-past month
-
 `recently-used`
 GTK's recently-used file (Usually available on Linux)
 
