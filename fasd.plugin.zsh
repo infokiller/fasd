@@ -26,12 +26,12 @@
 #
 : ${_FASD_INIT_CACHE:=${ZSH_CACHE_DIR:-${ZDOTDIR:-$HOME}}/.fasd-init.zsh}
 
-fpath+=($0:h/fasd.plugin/bin)
-manpath+=($0:h/fasd.plugin/man)
+fpath+=(${0:A:h}/fasd.plugin/bin)
+manpath+=(${0:A:h}/fasd.plugin/man)
 
 emulate sh -c 'autoload -U fasd'
 
-if [ $0:h/fasd -nt $_FASD_INIT_CACHE -o ! -s $_FASD_INIT_CACHE ]; then
+if [ ${0:A:h}/fasd -nt $_FASD_INIT_CACHE -o ! -s $_FASD_INIT_CACHE ]; then
     fasd --init \
       ${=_FASD_INIT_OPTS:-'auto'} \
       >| $_FASD_INIT_CACHE
