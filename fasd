@@ -54,8 +54,7 @@ printf_debug_log() {
 log_executed_lines() {
   # Log every line executed to the journal. See also:
   # https://unix.stackexchange.com/q/393097/126543
-  exec 5> >(logger --tag fasd)
-  BASH_XTRACEFD='5'
+  exec {BASH_XTRACEFD}> >(logger --tag fasd)
   PS4='${LINENO}: '
   set -x
 }
